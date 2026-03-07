@@ -4,11 +4,14 @@
  */
 
 import React from 'react';
-import { ExternalLink, Calendar, Tag, Share2 } from 'lucide-react';
+import { ExternalLink, Calendar, Tag, Share2, Bookmark as BookmarkIcon } from 'lucide-react';
 import { NewsItem } from '../types';
 import { formatDistanceToNow } from 'date-fns';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { auth, db, handleFirestoreError } from '../firebase';
+import { useAuthState } from 'react-firebase-hooks/auth';
+import { doc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -19,6 +22,47 @@ interface NewsCardProps {
 }
 
 export const NewsCard: React.FC<NewsCardProps> = ({ item }) => {
+  const [user] = useAuthState(auth);
+  const [isBookmarked, setIsBookmarked] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!user) {
+      setIsBookmarked(false);
+      return;
+    }
+
+    const bookmarkRef = doc(db, 'users', user.uid, 'bookmarks', item.id);
+    const unsubscribe = onSnapshot(bookmarkRef, (doc) => {
+      setIsBookmarked(doc.exists());
+    }, (error) => {
+      handleFirestoreError(error, 'read', `users/${user.uid}/bookmarks/${item.id}`);
+    });
+
+    return () => unsubscribe();
+  }, [user, item.id]);
+
+  const toggleBookmark = async () => {
+    if (!user) {
+      alert("Please sign in to bookmark articles.");
+      return;
+    }
+
+    const bookmarkRef = doc(db, 'users', user.uid, 'bookmarks', item.id);
+    try {
+      if (isBookmarked) {
+        await deleteDoc(bookmarkRef);
+      } else {
+        await setDoc(bookmarkRef, {
+          ...item,
+          userId: user.uid,
+          newsId: item.id,
+          bookmarkedAt: new Date().toISOString()
+        });
+      }
+    } catch (error) {
+      handleFirestoreError(error, isBookmarked ? 'delete' : 'write', `users/${user.uid}/bookmarks/${item.id}`);
+    }
+  };
   const categoryColors = {
     Research: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
     Industry: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
@@ -84,6 +128,17 @@ export const NewsCard: React.FC<NewsCardProps> = ({ item }) => {
             className="p-2 rounded-lg bg-zinc-800/50 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-all"
           >
             <Share2 className="w-4 h-4" />
+          </button>
+          <button 
+            onClick={toggleBookmark}
+            className={cn(
+              "p-2 rounded-lg transition-all",
+              isBookmarked 
+                ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" 
+                : "bg-zinc-800/50 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800"
+            )}
+          >
+            <BookmarkIcon className={cn("w-4 h-4", isBookmarked && "fill-emerald-400")} />
           </button>
           <a
             href={item.url}

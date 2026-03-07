@@ -5,24 +5,36 @@ import { NewsCard } from './components/NewsCard';
 import { CEOInsights } from './components/CEOInsights';
 import { PublicUsage } from './components/PublicUsage';
 import { fetchLatestAINews } from './services/gemini';
-import { NewsItem, CEOQuote, PublicUsageStory } from './types';
-import { AlertCircle, RefreshCw, TrendingUp, Cpu, Brain, Network, Zap, ArrowLeft, Building2, SearchX, Linkedin, Twitter, Github } from 'lucide-react';
+import { NewsItem, CEOQuote, PublicUsageStory, Bookmark, UserProfile } from './types';
+import { AlertCircle, RefreshCw, TrendingUp, Cpu, Brain, Network, Zap, ArrowLeft, Building2, SearchX, Linkedin, Twitter, Github, Bookmark as BookmarkIcon, Sparkles } from 'lucide-react';
 import { ChatBot } from './components/ChatBot';
+import { PreferencesModal } from './components/PreferencesModal';
+import { auth, db, handleFirestoreError } from './firebase';
+import { useAuthState } from 'react-firebase-hooks/auth';
+import { collection, onSnapshot, query, orderBy, doc, setDoc } from 'firebase/firestore';
 
 export default function App() {
+  const [user] = useAuthState(auth);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [news, setNews] = useState<NewsItem[]>([]);
   const [ceoQuotes, setCeoQuotes] = useState<CEOQuote[]>([]);
   const [publicUsage, setPublicUsage] = useState<PublicUsageStory[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isSearching, setIsSearching] = useState(false);
+  const [view, setView] = useState<'feed' | 'bookmarks'>('feed');
+  const [isPreferencesOpen, setIsPreferencesOpen] = useState(false);
 
   const categories = ['All', 'Research', 'Industry', 'Policy', 'Breakthrough'];
 
   const loadNews = async (query?: string, category: string = 'All') => {
+    if (loading && !isInitialLoad) return;
     setLoading(true);
+    setIsInitialLoad(false);
     setError(null);
     setActiveCategory(category);
     
@@ -36,8 +48,17 @@ export default function App() {
       setSearchQuery('');
     }
 
+    // Use user preferences if it's a global feed and no specific category is selected
+    let targetCategory = category;
+    if (isGlobal && category === 'All' && userProfile?.preferences?.followedTopics) {
+      const topics = userProfile.preferences.followedTopics;
+      if (!topics.includes('All')) {
+        targetCategory = topics.join(', ');
+      }
+    }
+
     try {
-      const data = await fetchLatestAINews(isGlobal ? undefined : query, category);
+      const data = await fetchLatestAINews(isGlobal ? undefined : query, targetCategory);
       
       if (!isGlobal && category === 'All') {
         const q = query!.toLowerCase();
@@ -85,7 +106,65 @@ export default function App() {
     }
   };
 
+  useEffect(() => {
+    loadNews();
+  }, [userProfile?.preferences?.followedTopics]);
+
+  useEffect(() => {
+    if (!user) {
+      setBookmarks([]);
+      setUserProfile(null);
+      return;
+    }
+
+    // User Profile listener
+    const userRef = doc(db, 'users', user.uid);
+    const unsubProfile = onSnapshot(userRef, async (snapshot) => {
+      if (snapshot.exists()) {
+        setUserProfile(snapshot.data() as UserProfile);
+      } else {
+        // Create profile if it doesn't exist
+        const newProfile: UserProfile = {
+          uid: user.uid,
+          email: user.email || '',
+          displayName: user.displayName,
+          photoURL: user.photoURL,
+          preferences: {
+            followedTopics: ['All'],
+            theme: 'dark'
+          },
+          createdAt: new Date().toISOString()
+        };
+        try {
+          await setDoc(userRef, newProfile);
+          setUserProfile(newProfile);
+        } catch (error) {
+          handleFirestoreError(error, 'create', `users/${user.uid}`);
+        }
+      }
+    }, (error) => {
+      handleFirestoreError(error, 'read', `users/${user.uid}`);
+    });
+
+    // Bookmarks listener
+    const bookmarksRef = collection(db, 'users', user.uid, 'bookmarks');
+    const q = query(bookmarksRef, orderBy('bookmarkedAt', 'desc'));
+    
+    const unsubBookmarks = onSnapshot(q, (snapshot) => {
+      const b = snapshot.docs.map(doc => doc.data() as Bookmark);
+      setBookmarks(b);
+    }, (error) => {
+      handleFirestoreError(error, 'list', `users/${user.uid}/bookmarks`);
+    });
+
+    return () => {
+      unsubProfile();
+      unsubBookmarks();
+    };
+  }, [user]);
+
   const handleLogoClick = () => {
+    setView('feed');
     if (isSearching) {
       loadNews();
     } else {
@@ -93,21 +172,78 @@ export default function App() {
     }
   };
 
-  useEffect(() => {
-    loadNews();
-  }, []);
-
   const filteredNews = activeCategory === 'All' 
     ? news 
     : news.filter(item => item.category === activeCategory);
 
   return (
     <div className="min-h-screen bg-black font-sans">
-      <Header onSearch={loadNews} onLogoClick={handleLogoClick} isLoading={loading} />
+      <Header 
+        onSearch={(q) => { setView('feed'); loadNews(q); }} 
+        onLogoClick={handleLogoClick} 
+        onShowBookmarks={() => {
+          setView('bookmarks');
+          window.scrollTo({ top: 0 });
+        }}
+        onShowPreferences={() => setIsPreferencesOpen(true)}
+        isLoading={loading} 
+      />
+
+      <PreferencesModal 
+        isOpen={isPreferencesOpen} 
+        onClose={() => setIsPreferencesOpen(false)} 
+        userProfile={userProfile} 
+      />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <AnimatePresence mode="wait">
-          {!isSearching ? (
+          {view === 'bookmarks' ? (
+            <motion.div
+              key="bookmarks-view"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+            >
+              <div className="flex items-center gap-4 mb-12">
+                <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                  <BookmarkIcon className="w-8 h-8" />
+                </div>
+                <div>
+                  <h2 className="text-3xl font-bold text-white tracking-tight">My Bookmarks</h2>
+                  <p className="text-zinc-500 text-sm mt-1 uppercase tracking-widest font-medium">Your Saved Intelligence</p>
+                </div>
+              </div>
+
+              {bookmarks.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-24 text-center">
+                  <BookmarkIcon className="w-12 h-12 text-zinc-800 mb-4" />
+                  <h3 className="text-xl font-bold text-zinc-200 mb-2">No Bookmarks Yet</h3>
+                  <p className="text-zinc-500 mb-6 max-w-sm">
+                    Articles you bookmark will appear here for quick access.
+                  </p>
+                  <button
+                    onClick={() => setView('feed')}
+                    className="px-8 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-300 hover:bg-zinc-800 transition-all font-bold text-sm"
+                  >
+                    Explore Feed
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  {bookmarks.map((item, index) => (
+                    <motion.div
+                      key={item.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                    >
+                      <NewsCard item={item} />
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          ) : !isSearching ? (
             <motion.div
               key="hero"
               initial={{ opacity: 0, y: -20 }}
@@ -200,7 +336,7 @@ export default function App() {
           )}
         </AnimatePresence>
 
-        {!isSearching && (
+        {!isSearching && view === 'feed' && (
           <div className="flex flex-wrap items-center justify-center gap-3 mb-12">
             {categories.map((cat) => (
               <button
@@ -219,95 +355,97 @@ export default function App() {
         )}
 
         {/* Intelligence Feed */}
-        <div className="relative">
-          <AnimatePresence mode="wait">
-            {loading ? (
-              <motion.div
-                key="loading"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="flex flex-col items-center justify-center py-24 gap-4"
-              >
-                <RefreshCw className="w-10 h-10 text-emerald-500 animate-spin" />
-                <p className="text-zinc-500 font-mono text-xs tracking-widest uppercase">Syncing with global nodes...</p>
-              </motion.div>
-            ) : error ? (
-              <motion.div
-                key="error"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex flex-col items-center justify-center py-24 text-center"
-              >
-                <AlertCircle className="w-12 h-12 text-red-500/50 mb-4" />
-                <h3 className="text-xl font-bold text-zinc-200 mb-2">Intelligence Feed Interrupted</h3>
-                <p className="text-zinc-500 mb-6 max-w-sm">{error}</p>
-                <button
-                  onClick={() => loadNews()}
-                  className="px-8 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-300 hover:bg-zinc-800 transition-all font-bold text-sm"
+        {view === 'feed' && (
+          <div className="relative">
+            <AnimatePresence mode="wait">
+              {loading ? (
+                <motion.div
+                  key="loading"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="flex flex-col items-center justify-center py-24 gap-4"
                 >
-                  Retry Connection
-                </button>
-              </motion.div>
-            ) : (news.length === 0 && ceoQuotes.length === 0) ? (
-              <motion.div
-                key="empty"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex flex-col items-center justify-center py-24 text-center"
-              >
-                <SearchX className="w-12 h-12 text-zinc-800 mb-4" />
-                <h3 className="text-xl font-bold text-zinc-200 mb-2">No Intelligence Found</h3>
-                <p className="text-zinc-500 mb-6 max-w-sm">
-                  We couldn't find specific updates for "{searchQuery}". Try a broader term or check back later.
-                </p>
-                <button
-                  onClick={() => loadNews()}
-                  className="px-8 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-300 hover:bg-zinc-800 transition-all font-bold text-sm"
+                  <RefreshCw className="w-10 h-10 text-emerald-500 animate-spin" />
+                  <p className="text-zinc-500 font-mono text-xs tracking-widest uppercase">Syncing with global nodes...</p>
+                </motion.div>
+              ) : error ? (
+                <motion.div
+                  key="error"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="flex flex-col items-center justify-center py-24 text-center"
                 >
-                  Return to Feed
-                </button>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="content"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="space-y-24"
-              >
-                {/* CEO Insights Section */}
-                <CEOInsights quotes={ceoQuotes} />
+                  <AlertCircle className="w-12 h-12 text-red-500/50 mb-4" />
+                  <h3 className="text-xl font-bold text-zinc-200 mb-2">Intelligence Feed Interrupted</h3>
+                  <p className="text-zinc-500 mb-6 max-w-sm">{error}</p>
+                  <button
+                    onClick={() => loadNews()}
+                    className="px-8 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-300 hover:bg-zinc-800 transition-all font-bold text-sm"
+                  >
+                    Retry Connection
+                  </button>
+                </motion.div>
+              ) : (news.length === 0 && ceoQuotes.length === 0) ? (
+                <motion.div
+                  key="empty"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="flex flex-col items-center justify-center py-24 text-center"
+                >
+                  <SearchX className="w-12 h-12 text-zinc-800 mb-4" />
+                  <h3 className="text-xl font-bold text-zinc-200 mb-2">No Intelligence Found</h3>
+                  <p className="text-zinc-500 mb-6 max-w-sm">
+                    We couldn't find specific updates for "{searchQuery}". Try a broader term or check back later.
+                  </p>
+                  <button
+                    onClick={() => loadNews()}
+                    className="px-8 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-300 hover:bg-zinc-800 transition-all font-bold text-sm"
+                  >
+                    Return to Feed
+                  </button>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="content"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="space-y-24"
+                >
+                  {/* CEO Insights Section */}
+                  <CEOInsights quotes={ceoQuotes} />
 
-                {/* News Grid */}
-                <section>
-                  <div className="flex items-center gap-3 mb-8">
-                    <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
-                      <Zap className="w-5 h-5" />
+                  {/* News Grid */}
+                  <section>
+                    <div className="flex items-center gap-3 mb-8">
+                      <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
+                        <Zap className="w-5 h-5" />
+                      </div>
+                      <h2 className="text-2xl font-bold text-white tracking-tight">
+                        {isSearching ? `${searchQuery} News & Articles` : 'Latest Advancements'}
+                      </h2>
                     </div>
-                    <h2 className="text-2xl font-bold text-white tracking-tight">
-                      {isSearching ? `${searchQuery} News & Articles` : 'Latest Advancements'}
-                    </h2>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {filteredNews.map((item, index) => (
-                      <motion.div
-                        key={item.id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.05 }}
-                      >
-                        <NewsCard item={item} />
-                      </motion.div>
-                    ))}
-                  </div>
-                </section>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                      {filteredNews.map((item, index) => (
+                        <motion.div
+                          key={item.id}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.05 }}
+                        >
+                          <NewsCard item={item} />
+                        </motion.div>
+                      ))}
+                    </div>
+                  </section>
 
-                {/* Public Usage Section */}
-                <PublicUsage stories={publicUsage} />
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+                  {/* Public Usage Section */}
+                  <PublicUsage stories={publicUsage} />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
       </main>
 
       <ChatBot />

@@ -138,17 +138,28 @@ export const fetchLatestAINews = async (query: string = "latest AI technology ad
     const cleanJson = jsonMatch ? jsonMatch[0] : text;
     const data = JSON.parse(cleanJson || '{"news": [], "ceoQuotes": [], "publicUsage": []}');
     
-    data.news = (data.news || []).map((item: any, index: number) => ({
+    const generateStableId = (item: any, prefix: string, index: number) => {
+      const str = `${item.url || item.title || item.story}-${index}`;
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32bit integer
+      }
+      return `${prefix}-${Math.abs(hash).toString(36)}`;
+    };
+
+    data.news = (data.news || []).map((item: any, idx: number) => ({
       ...item,
-      id: `news-${Date.now()}-${index}`
+      id: generateStableId(item, 'news', idx)
     }));
-    data.ceoQuotes = (data.ceoQuotes || []).map((item: any, index: number) => ({
+    data.ceoQuotes = (data.ceoQuotes || []).map((item: any, idx: number) => ({
       ...item,
-      id: `ceo-${Date.now()}-${index}`
+      id: generateStableId(item, 'ceo', idx)
     }));
-    data.publicUsage = (data.publicUsage || []).map((item: any, index: number) => ({
+    data.publicUsage = (data.publicUsage || []).map((item: any, idx: number) => ({
       ...item,
-      id: `usage-${Date.now()}-${index}`
+      id: generateStableId(item, 'usage', idx)
     }));
     return data;
   } catch (e) {

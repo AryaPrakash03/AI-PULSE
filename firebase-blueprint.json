@@ -1,0 +1,54 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and preferences",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "preferences": {
+          "type": "object",
+          "properties": {
+            "followedTopics": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "theme": { "type": "string", "enum": ["dark", "light"] }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Bookmark": {
+      "title": "Bookmark",
+      "description": "A bookmarked news item",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "newsId": { "type": "string" },
+        "title": { "type": "string" },
+        "summary": { "type": "string" },
+        "url": { "type": "string" },
+        "category": { "type": "string" },
+        "companyName": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "bookmarkedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "newsId", "title", "url"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile documents"
+    },
+    "/users/{userId}/bookmarks/{bookmarkId}": {
+      "schema": "Bookmark",
+      "description": "User's bookmarked news items"
+    }
+  }
+}

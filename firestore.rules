@@ -1,0 +1,57 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "aryaprakash1759@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'createdAt']) &&
+             data.uid is string &&
+             data.email is string &&
+             data.email.size() < 255;
+    }
+
+    function isValidBookmark(data) {
+      return data.keys().hasAll(['id', 'title', 'url', 'userId', 'bookmarkedAt']) &&
+             data.id is string &&
+             data.title is string &&
+             data.title.size() < 500 &&
+             data.url is string &&
+             data.userId == request.auth.uid;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    // User Profile Rules
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if (isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.role == resource.data.role) || isAdmin();
+      
+      // Bookmarks Subcollection
+      match /bookmarks/{bookmarkId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow create: if isOwner(userId) && isValidBookmark(request.resource.data);
+        allow update: if isOwner(userId) && isValidBookmark(request.resource.data);
+        allow delete: if isOwner(userId) || isAdmin();
+      }
+    }
+  }
+}

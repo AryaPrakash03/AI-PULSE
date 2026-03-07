@@ -15,6 +15,26 @@ export interface NewsItem {
   companyName?: string;
 }
 
+export interface UserPreferences {
+  followedTopics: string[];
+  theme: 'dark' | 'light';
+}
+
+export interface UserProfile {
+  uid: string;
+  email: string;
+  displayName: string | null;
+  photoURL: string | null;
+  preferences: UserPreferences;
+  createdAt: string;
+}
+
+export interface Bookmark extends NewsItem {
+  userId: string;
+  newsId: string;
+  bookmarkedAt: string;
+}
+
 export interface CEOQuote {
   id: string;
   ceoName: string;

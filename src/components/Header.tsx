@@ -4,16 +4,49 @@
  */
 
 import React from 'react';
-import { Search, Sparkles, Globe, Zap } from 'lucide-react';
+import { Search, Sparkles, Globe, Zap, LogIn, LogOut, User, Bookmark as BookmarkIcon, Settings } from 'lucide-react';
+import { auth, signInWithGoogle, logout } from '../firebase';
+import { useAuthState } from 'react-firebase-hooks/auth';
 
 interface HeaderProps {
   onSearch: (query: string) => void;
   onLogoClick: () => void;
+  onShowBookmarks?: () => void;
+  onShowPreferences?: () => void;
   isLoading: boolean;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onSearch, onLogoClick, isLoading }) => {
+export const Header: React.FC<HeaderProps> = ({ onSearch, onLogoClick, onShowBookmarks, onShowPreferences, isLoading }) => {
   const [query, setQuery] = React.useState('');
+  const [user] = useAuthState(auth);
+  const [showDropdown, setShowDropdown] = React.useState(false);
+  const dropdownRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+
+    const handleScroll = () => {
+      if (showDropdown) {
+        setShowDropdown(false);
+      }
+    };
+
+    if (showDropdown) {
+      document.addEventListener('mousedown', handleClickOutside, true);
+      document.addEventListener('touchstart', handleClickOutside, true);
+      window.addEventListener('scroll', handleScroll, true);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside, true);
+      document.removeEventListener('touchstart', handleClickOutside, true);
+      window.removeEventListener('scroll', handleScroll, true);
+    };
+  }, [showDropdown]);
 
   const trending = ['OpenAI', 'NVIDIA', 'Anthropic', 'Google AI', 'DeepSeek'];
 
@@ -82,15 +115,70 @@ export const Header: React.FC<HeaderProps> = ({ onSearch, onLogoClick, isLoading
             </div>
           </div>
 
-          <div className="hidden lg:flex items-center gap-6">
-            <div className="flex items-center gap-2 text-zinc-400 text-xs font-medium">
-              <Globe className="w-4 h-4" />
-              <span>Global Coverage</span>
+          <div className="flex items-center gap-4">
+            <div className="hidden lg:flex items-center gap-6">
+              <div className="flex items-center gap-2 text-zinc-400 text-xs font-medium">
+                <Globe className="w-4 h-4" />
+                <span>Global Coverage</span>
+              </div>
+              <div className="flex items-center gap-2 text-zinc-400 text-xs font-medium">
+                <Sparkles className="w-4 h-4" />
+                <span>AI Grounded</span>
+              </div>
             </div>
-            <div className="flex items-center gap-2 text-zinc-400 text-xs font-medium">
-              <Sparkles className="w-4 h-4" />
-              <span>AI Grounded</span>
-            </div>
+
+            {user ? (
+              <div className="relative" ref={dropdownRef}>
+                <button 
+                  onClick={() => setShowDropdown(!showDropdown)}
+                  className="flex items-center gap-2 p-1.5 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-emerald-500/30 transition-all"
+                >
+                  {user.photoURL ? (
+                    <img src={user.photoURL} alt={user.displayName || 'User'} className="w-6 h-6 rounded-lg" referrerPolicy="no-referrer" />
+                  ) : (
+                    <div className="w-6 h-6 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400">
+                      <User className="w-4 h-4" />
+                    </div>
+                  )}
+                  <span className="text-[10px] font-bold text-zinc-300 hidden sm:block">{user.displayName?.split(' ')[0]}</span>
+                </button>
+
+                {showDropdown && (
+                  <div className="absolute right-0 mt-2 w-48 bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl py-2 z-50">
+                    <button 
+                      onClick={() => { onShowBookmarks?.(); setShowDropdown(false); }}
+                      className="w-full flex items-center gap-3 px-4 py-2 text-xs text-zinc-400 hover:text-emerald-400 hover:bg-zinc-800 transition-all"
+                    >
+                      <BookmarkIcon className="w-4 h-4" />
+                      My Bookmarks
+                    </button>
+                    <button 
+                      onClick={() => { onShowPreferences?.(); setShowDropdown(false); }}
+                      className="w-full flex items-center gap-3 px-4 py-2 text-xs text-zinc-400 hover:text-emerald-400 hover:bg-zinc-800 transition-all"
+                    >
+                      <Settings className="w-4 h-4" />
+                      Preferences
+                    </button>
+                    <div className="h-px bg-zinc-800 my-1 mx-2"></div>
+                    <button 
+                      onClick={() => { logout(); setShowDropdown(false); }}
+                      className="w-full flex items-center gap-3 px-4 py-2 text-xs text-red-400 hover:bg-red-500/10 transition-all"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Sign Out
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button 
+                onClick={signInWithGoogle}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 text-zinc-900 text-xs font-bold hover:bg-emerald-400 transition-all"
+              >
+                <LogIn className="w-4 h-4" />
+                <span className="hidden sm:block">Sign In</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
