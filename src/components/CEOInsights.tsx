@@ -60,8 +60,23 @@ export const CEOInsights: React.FC<CEOInsightsProps> = ({ quotes }) => {
               </div>
             </div>
             
-            <div className="mt-4 text-[10px] text-zinc-600 font-medium uppercase tracking-widest">
-              Context: {item.context}
+            <div className="mt-4 flex items-center justify-between">
+              <div className="text-[10px] text-zinc-600 font-medium uppercase tracking-widest">
+                Context: {item.context}
+              </div>
+              <a 
+                href={item.url} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex flex-col items-end group/link"
+              >
+                <span className="text-[10px] font-bold text-purple-400 group-hover:text-purple-300 transition-colors uppercase tracking-widest">
+                  Read Full Story
+                </span>
+                <span className="text-[8px] text-zinc-600 font-normal lowercase tracking-normal">
+                  {new URL(item.url).hostname.replace('www.', '')}
+                </span>
+              </a>
             </div>
           </motion.div>
         ))}

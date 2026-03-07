@@ -51,7 +51,7 @@ export default function App() {
         };
 
         const isKnownCompany = synonyms[q] !== undefined;
-        const searchTerms = isKnownCompany ? [q, ...synonyms[q]] : q.split(' ').filter(word => word.length > 3);
+        const searchTerms = isKnownCompany ? [q, ...synonyms[q]] : q.split(' ').filter(word => word.length >= 2);
 
         const isRelevant = (text: string) => {
           const lowerText = text.toLowerCase();
@@ -68,9 +68,10 @@ export default function App() {
           isRelevant(n.companyName || '')
         );
 
-        setNews(filteredNews.length > 0 ? filteredNews : data.news);
-        setCeoQuotes(data.ceoQuotes);
-        setPublicUsage(data.publicUsage);
+        // When searching, we strictly show only filtered results to avoid unrelated content
+        setNews(filteredNews);
+        setCeoQuotes(data.ceoQuotes.filter(q => isRelevant(q.ceoName) || isRelevant(q.company) || isRelevant(q.quote)));
+        setPublicUsage(data.publicUsage.filter(s => isRelevant(s.userField) || isRelevant(s.story) || isRelevant(s.example)));
       } else {
         setNews(data.news);
         setCeoQuotes(data.ceoQuotes);

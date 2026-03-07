@@ -21,6 +21,7 @@ export interface CEOQuote {
   company: string;
   quote: string;
   context: string;
+  url: string;
   avatarUrl?: string;
 }
 
@@ -30,6 +31,7 @@ export interface PublicUsageStory {
   story: string;
   impact: string;
   example: string;
+  url: string;
 }
 
 export interface NewsResponse {

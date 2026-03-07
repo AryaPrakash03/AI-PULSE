@@ -51,7 +51,20 @@ export const PublicUsage: React.FC<PublicUsageProps> = ({ stories }) => {
                 <span className="text-[10px] text-zinc-600 uppercase tracking-widest font-bold">Method</span>
                 <span className="text-xs text-zinc-300 font-medium">{item.example}</span>
               </div>
-              <ArrowRight className="w-4 h-4 text-zinc-700 group-hover:text-emerald-500 transition-colors" />
+              <a 
+                href={item.url} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 text-xs font-bold text-emerald-400 hover:text-emerald-300 transition-colors group/link"
+              >
+                <div className="flex flex-col items-end">
+                  <span>Read Case Study</span>
+                  <span className="text-[8px] text-zinc-600 font-normal lowercase tracking-normal">
+                    {new URL(item.url).hostname.replace('www.', '')}
+                  </span>
+                </div>
+                <ArrowRight className="w-4 h-4 group-hover/link:translate-x-1 transition-transform" />
+              </a>
             </div>
           </motion.div>
         ))}

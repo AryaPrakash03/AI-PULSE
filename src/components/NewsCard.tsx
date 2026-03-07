@@ -89,9 +89,14 @@ export const NewsCard: React.FC<NewsCardProps> = ({ item }) => {
             href={item.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500/10 text-emerald-400 text-xs font-bold hover:bg-emerald-500 hover:text-zinc-900 transition-all"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500/10 text-emerald-400 text-xs font-bold hover:bg-emerald-500 hover:text-zinc-900 transition-all group/link"
           >
-            Read Article
+            <div className="flex flex-col items-start">
+              <span>Read Article</span>
+              <span className="text-[8px] font-normal lowercase tracking-normal opacity-60 group-hover/link:text-zinc-900">
+                {new URL(item.url).hostname.replace('www.', '')}
+              </span>
+            </div>
             <ExternalLink className="w-3 h-3" />
           </a>
         </div>
