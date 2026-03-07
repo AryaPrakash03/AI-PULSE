@@ -9,15 +9,18 @@ export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const googleProvider = new GoogleAuthProvider();
 
 export const signInWithGoogle = async () => {
+  console.log("Initiating Google Sign-In...");
   try {
     const result = await signInWithPopup(auth, googleProvider);
     const user = result.user;
+    console.log("Sign-In successful for user:", user.uid);
     
     // Initialize user doc if it doesn't exist
     const userRef = doc(db, 'users', user.uid);
     const userSnap = await getDoc(userRef);
     
     if (!userSnap.exists()) {
+      console.log("Creating new user profile in Firestore...");
       await setDoc(userRef, {
         uid: user.uid,
         email: user.email,
@@ -31,8 +34,13 @@ export const signInWithGoogle = async () => {
       });
     }
     return user;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error signing in with Google:", error);
+    if (error.code === 'auth/popup-blocked') {
+      console.error("Popup was blocked by the browser. Please allow popups for this site.");
+    } else if (error.code === 'auth/unauthorized-domain') {
+      console.error("This domain is not authorized in the Firebase Console. Please add it to the 'Authorized domains' list in the Authentication settings.");
+    }
     throw error;
   }
 };

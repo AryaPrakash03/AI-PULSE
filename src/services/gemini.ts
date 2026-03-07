@@ -50,8 +50,29 @@ export const fetchLatestAINews = async (query: string = "latest AI technology ad
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || "Failed to fetch news from server");
+      const contentType = response.headers.get("content-type");
+      let errorMessage = "Failed to fetch news from server";
+      
+      if (contentType && contentType.includes("application/json")) {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorMessage;
+      } else {
+        const text = await response.text();
+        if (text.includes("<title>")) {
+          const titleMatch = text.match(/<title>(.*?)<\/title>/);
+          errorMessage = titleMatch ? `Server Error: ${titleMatch[1]}` : "Server returned HTML instead of JSON";
+        } else {
+          errorMessage = text.slice(0, 100) || errorMessage;
+        }
+      }
+      
+      throw new Error(errorMessage);
+    }
+
+    const contentType = response.headers.get("content-type");
+    if (!contentType || !contentType.includes("application/json")) {
+      const text = await response.text();
+      throw new Error(`Invalid response from server: ${text.slice(0, 100)}...`);
     }
 
     const data = await response.json();
@@ -160,8 +181,29 @@ export const chatWithAI = async (message: string, history: { role: string, parts
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || "Failed to chat with AI server");
+      const contentType = response.headers.get("content-type");
+      let errorMessage = "Failed to chat with AI server";
+      
+      if (contentType && contentType.includes("application/json")) {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorMessage;
+      } else {
+        const text = await response.text();
+        if (text.includes("<title>")) {
+          const titleMatch = text.match(/<title>(.*?)<\/title>/);
+          errorMessage = titleMatch ? `Server Error: ${titleMatch[1]}` : "Server returned HTML instead of JSON";
+        } else {
+          errorMessage = text.slice(0, 100) || errorMessage;
+        }
+      }
+      
+      throw new Error(errorMessage);
+    }
+
+    const contentType = response.headers.get("content-type");
+    if (!contentType || !contentType.includes("application/json")) {
+      const text = await response.text();
+      throw new Error(`Invalid response from server: ${text.slice(0, 100)}...`);
     }
 
     const data = await response.json();

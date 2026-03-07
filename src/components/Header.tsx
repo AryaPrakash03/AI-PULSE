@@ -62,6 +62,21 @@ export const Header: React.FC<HeaderProps> = ({ onSearch, onLogoClick, onShowBoo
     onSearch(tag);
   };
 
+  const handleSignIn = async () => {
+    try {
+      await signInWithGoogle();
+    } catch (error: any) {
+      console.error("Sign-in failed:", error);
+      if (error.code === 'auth/popup-blocked') {
+        alert("Sign-in popup was blocked. Please allow popups for this site.");
+      } else if (error.code === 'auth/unauthorized-domain') {
+        alert("This domain is not authorized for sign-in. Please add '" + window.location.hostname + "' to your Firebase Authorized Domains.");
+      } else {
+        alert("Sign-in failed: " + (error.message || "Unknown error"));
+      }
+    }
+  };
+
   return (
     <header className="sticky top-0 z-50 w-full bg-black/80 backdrop-blur-xl border-b border-zinc-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -172,7 +187,7 @@ export const Header: React.FC<HeaderProps> = ({ onSearch, onLogoClick, onShowBoo
               </div>
             ) : (
               <button 
-                onClick={signInWithGoogle}
+                onClick={handleSignIn}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 text-zinc-900 text-xs font-bold hover:bg-emerald-400 transition-all"
               >
                 <LogIn className="w-4 h-4" />
