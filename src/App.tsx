@@ -50,8 +50,6 @@ export default function App() {
           'microsoft': ['satya nadella', 'azure', 'copilot', 'bing']
         };
 
-        // If it's a known company, use strict synonym filtering
-        // Otherwise, if it's a long topic query, use keyword-based filtering or trust the AI
         const isKnownCompany = synonyms[q] !== undefined;
         const searchTerms = isKnownCompany ? [q, ...synonyms[q]] : q.split(' ').filter(word => word.length > 3);
 
@@ -60,8 +58,6 @@ export default function App() {
           if (isKnownCompany) {
             return searchTerms.some(term => lowerText.includes(term));
           }
-          // For topic searches, at least 1 keyword should match to be "relevant"
-          // We trust the AI more for these broader queries
           const matches = searchTerms.filter(term => lowerText.includes(term)).length;
           return matches >= 1;
         };
@@ -72,7 +68,6 @@ export default function App() {
           isRelevant(n.companyName || '')
         );
 
-        // If filtering is too aggressive and returns nothing, fallback to raw data
         setNews(filteredNews.length > 0 ? filteredNews : data.news);
         setCeoQuotes(data.ceoQuotes);
         setPublicUsage(data.publicUsage);
@@ -82,8 +77,8 @@ export default function App() {
         setPublicUsage(data.publicUsage);
       }
     } catch (err) {
-      setError('Failed to fetch the latest AI updates. Please try again.');
-      console.error(err);
+      console.error("Error in loadNews:", err);
+      // We don't set error state here anymore because fetchLatestAINews returns fallbacks
     } finally {
       setLoading(false);
     }
