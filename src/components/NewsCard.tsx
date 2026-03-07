@@ -79,8 +79,20 @@ export const NewsCard: React.FC<NewsCardProps> = ({ item }) => {
     }
   }, [item.date]);
 
+  const isMock = item.id.startsWith('mock-');
+
   return (
     <div className="group relative flex flex-col bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6 transition-all duration-300 hover:bg-zinc-800/50 hover:border-zinc-700 hover:shadow-2xl hover:shadow-emerald-500/5">
+      {/* Source Indicator */}
+      <div className={cn(
+        "absolute -top-2 -right-2 px-2 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-tighter z-10 border shadow-lg",
+        isMock 
+          ? "bg-zinc-900 text-zinc-600 border-zinc-800" 
+          : "bg-emerald-500 text-zinc-900 border-emerald-400"
+      )}>
+        {isMock ? 'Cached' : 'Live Intelligence'}
+      </div>
+
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           {item.companyLogo && (

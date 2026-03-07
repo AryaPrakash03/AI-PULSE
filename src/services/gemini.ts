@@ -7,26 +7,33 @@ import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
 import { NewsResponse } from "../types";
 
 const getApiKey = () => {
+  let key = "";
+
   // 1. Try process.env (standard for AI Studio and Node environments)
   try {
+    // @ts-ignore
     if (typeof process !== 'undefined' && process.env && process.env.GEMINI_API_KEY) {
-      return process.env.GEMINI_API_KEY;
+      // @ts-ignore
+      key = process.env.GEMINI_API_KEY;
     }
   } catch (e) {}
 
   // 2. Try Vite-prefixed environment variable
-  if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_GEMINI_API_KEY) {
-    return import.meta.env.VITE_GEMINI_API_KEY;
+  if (!key && typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_GEMINI_API_KEY) {
+    key = import.meta.env.VITE_GEMINI_API_KEY;
   }
 
   // 3. Try global variable (sometimes injected by platform)
   // @ts-ignore
-  if (typeof GEMINI_API_KEY !== 'undefined') {
+  if (!key && typeof GEMINI_API_KEY !== 'undefined') {
     // @ts-ignore
-    return GEMINI_API_KEY;
+    key = GEMINI_API_KEY;
   }
 
-  return "";
+  // Final check for string "undefined" which can happen with some build tools
+  if (key === "undefined" || key === "null") return "";
+  
+  return key;
 };
 
 const apiKey = getApiKey();
@@ -44,18 +51,21 @@ export const fetchLatestAINews = async (query: string = "latest AI technology ad
     const model = "gemini-3-flash-preview";
     const today = new Date().toISOString().split('T')[0];
     
-    const prompt = `Fetch the most recent and relevant news for ${today}.
+    const prompt = `CRITICAL: You MUST use the Google Search tool to find the most recent news for the query below.
+    
+    CURRENT DATE: ${today}
     SEARCH QUERY: ${query}
-    CATEGORY FOCUS: ${category}
+    CATEGORY: ${category}
     
     INSTRUCTIONS:
-    1. Use Google Search to find the absolute latest updates (last 24-72 hours).
-    2. If a specific SEARCH QUERY is provided (e.g., "Paytm", "PhonePe"), prioritize results for that query. 
-    3. If the query is a company, look for their latest AI integrations, financial updates related to tech, or major industry moves.
-    4. URL QUALITY: Every 'url' MUST be a direct, absolute HTTPS link to the specific article. No placeholders.
-    5. Ensure 'news' has up to 6 items, 'ceoQuotes' has up to 3, and 'publicUsage' has up to 3.
+    1. Perform a fresh Google Search for "${query} latest news ${today}".
+    2. Focus on news from the last 24-48 hours.
+    3. If the query is a company (like Paytm, PhonePe, etc.), find their latest business updates, AI initiatives, or regulatory news.
+    4. DO NOT use your internal knowledge if it's older than 24 hours. Use the search results.
+    5. If no news is found for the specific query, find the most recent general tech/AI news from today.
+    6. Return the data in the requested JSON format.
     
-    DATA REQUIREMENTS:
+    DATA STRUCTURE:
     - 'news': [{title, summary, source, url, date, category, companyName, companyLogo}]
     - 'ceoQuotes': [{ceoName, company, quote, context, url, avatarUrl}]
     - 'publicUsage': [{userField, story, impact, example, url}]`;
@@ -64,9 +74,9 @@ export const fetchLatestAINews = async (query: string = "latest AI technology ad
       model,
       contents: [{ parts: [{ text: prompt }] }],
       config: {
+        systemInstruction: "You are an expert AI news researcher. You MUST use the Google Search tool for every request to find real-time news. Never hallucinate or use old training data for news queries.",
         tools: [{ googleSearch: {} }],
         responseMimeType: "application/json",
-        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
         responseSchema: {
           type: Type.OBJECT,
           properties: {

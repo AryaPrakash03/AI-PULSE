@@ -10,7 +10,7 @@ export interface NewsItem {
   source: string;
   url: string;
   date: string;
-  category: 'Research' | 'Industry' | 'Policy' | 'Breakthrough' | 'General';
+  category: 'Research' | 'Industry' | 'Policy' | 'Breakthrough' | 'General' | 'System';
   companyLogo?: string;
   companyName?: string;
 }
