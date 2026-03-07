@@ -3,6 +3,9 @@ import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import path from "path";
 import { fileURLToPath } from "url";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -12,11 +15,7 @@ async function startServer() {
   const PORT = 3000;
 
   app.use(express.json());
-
-  // Gemini Setup
-  const apiKey = process.env.GEMINI_API_KEY;
-  const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
-
+  
   // API Routes
   app.get("/api/health", (req, res) => {
     res.json({ 
@@ -25,6 +24,10 @@ async function startServer() {
       env: process.env.NODE_ENV
     });
   });
+
+  // Gemini Setup
+  const apiKey = process.env.GEMINI_API_KEY;
+  const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
   app.post("/api/news", async (req, res) => {
     const { query = "latest AI technology advancements and news", category = "All" } = req.body;

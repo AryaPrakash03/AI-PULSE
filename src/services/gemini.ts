@@ -80,21 +80,23 @@ export const fetchLatestAINews = async (query: string = "latest AI technology ad
       id: generateStableId(item, 'usage', idx)
     }));
     return data;
-  } catch (e) {
+  } catch (e: any) {
     console.error("Gemini API Error (Client):", e);
     // Fallback to mock data on any error so the UI doesn't break
-    return getMockData(query, category);
+    return getMockData(query, category, e.message);
   }
 };
 
-const getMockData = (query: string, category: string): NewsResponse => {
-  console.log(`Using mock data for: ${query} (${category})`);
+const getMockData = (query: string, category: string, errorMessage?: string): NewsResponse => {
+  console.log(`Using mock data for: ${query} (${category}). Error: ${errorMessage}`);
   return {
     news: [
       {
         id: 'mock-1',
-        title: "Gemini API Connection Required",
-        summary: "To see real-time intelligence for your search, please ensure a valid Gemini API key is configured in your environment variables.",
+        title: errorMessage ? `Connection Error: ${errorMessage}` : "Gemini API Connection Required",
+        summary: errorMessage 
+          ? `The server returned an error: "${errorMessage}". Please check your GEMINI_API_KEY configuration.`
+          : "To see real-time intelligence for your search, please ensure a valid Gemini API key is configured in your environment variables.",
         source: "AI Pulse System",
         url: "https://ai.google.dev/",
         date: "System Message",
