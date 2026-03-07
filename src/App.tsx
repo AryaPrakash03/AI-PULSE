@@ -60,44 +60,11 @@ export default function App() {
     try {
       const data = await fetchLatestAINews(isGlobal ? undefined : query, targetCategory);
       
-      if (!isGlobal && category === 'All') {
-        const q = query!.toLowerCase();
-        const synonyms: Record<string, string[]> = {
-          'meta': ['facebook', 'instagram', 'zuckerberg', 'llama'],
-          'google': ['alphabet', 'deepmind', 'gemini', 'pichai'],
-          'openai': ['sam altman', 'chatgpt', 'gpt-4', 'gpt-5'],
-          'nvidia': ['jensen huang', 'gpu', 'h100', 'blackwell'],
-          'apple': ['tim cook', 'intelligence', 'iphone', 'mac'],
-          'microsoft': ['satya nadella', 'azure', 'copilot', 'bing']
-        };
-
-        const isKnownCompany = synonyms[q] !== undefined;
-        const searchTerms = isKnownCompany ? [q, ...synonyms[q]] : q.split(' ').filter(word => word.length >= 2);
-
-        const isRelevant = (text: string) => {
-          const lowerText = text.toLowerCase();
-          if (isKnownCompany) {
-            return searchTerms.some(term => lowerText.includes(term));
-          }
-          const matches = searchTerms.filter(term => lowerText.includes(term)).length;
-          return matches >= 1;
-        };
-
-        const filteredNews = data.news.filter(n => 
-          isRelevant(n.title) || 
-          isRelevant(n.summary) || 
-          isRelevant(n.companyName || '')
-        );
-
-        // When searching, we strictly show only filtered results to avoid unrelated content
-        setNews(filteredNews);
-        setCeoQuotes(data.ceoQuotes.filter(q => isRelevant(q.ceoName) || isRelevant(q.company) || isRelevant(q.quote)));
-        setPublicUsage(data.publicUsage.filter(s => isRelevant(s.userField) || isRelevant(s.story) || isRelevant(s.example)));
-      } else {
-        setNews(data.news);
-        setCeoQuotes(data.ceoQuotes);
-        setPublicUsage(data.publicUsage);
-      }
+      // We trust the Gemini model's search grounding to return relevant results.
+      // Redundant client-side filtering can sometimes be too strict and hide valid results.
+      setNews(data.news);
+      setCeoQuotes(data.ceoQuotes);
+      setPublicUsage(data.publicUsage);
     } catch (err) {
       console.error("Error in loadNews:", err);
       // We don't set error state here anymore because fetchLatestAINews returns fallbacks
