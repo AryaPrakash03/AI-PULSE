@@ -6,7 +6,7 @@
 import React from 'react';
 import { Lightbulb, ArrowRight } from 'lucide-react';
 import { PublicUsageStory } from '../types';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 
 interface PublicUsageProps {
   stories: PublicUsageStory[];

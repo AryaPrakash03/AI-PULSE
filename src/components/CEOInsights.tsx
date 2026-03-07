@@ -6,7 +6,7 @@
 import React from 'react';
 import { Quote } from 'lucide-react';
 import { CEOQuote } from '../types';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 
 interface CEOInsightsProps {
   quotes: CEOQuote[];

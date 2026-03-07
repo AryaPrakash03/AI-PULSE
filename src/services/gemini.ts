@@ -6,9 +6,43 @@
 import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
 import { NewsResponse } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const getApiKey = () => {
+  // 1. Try Vite-prefixed environment variable (standard for Vercel/Vite client-side)
+  // We check import.meta.env first as it's the standard Vite way
+  if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_GEMINI_API_KEY) {
+    return import.meta.env.VITE_GEMINI_API_KEY;
+  }
+
+  // 2. Try process.env (standard for AI Studio and Node environments)
+  // We use a try-catch because 'process' might be undefined in the browser
+  try {
+    if (typeof process !== 'undefined' && process.env && process.env.GEMINI_API_KEY) {
+      return process.env.GEMINI_API_KEY;
+    }
+  } catch (e) {
+    // Ignore
+  }
+
+  // 3. Fallback to a global variable if injected by Vite's define (though we removed it)
+  // @ts-ignore
+  if (typeof GEMINI_API_KEY !== 'undefined') {
+    // @ts-ignore
+    return GEMINI_API_KEY;
+  }
+
+  return "";
+};
+
+const apiKey = getApiKey();
+
+// Only initialize if we have an API key to prevent crashes
+const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
 export const fetchLatestAINews = async (query: string = "latest AI technology advancements and news", category: string = "All"): Promise<NewsResponse> => {
+  if (!ai) {
+    console.error("Gemini API Key is missing. Please set VITE_GEMINI_API_KEY or GEMINI_API_KEY.");
+    return { news: [], ceoQuotes: [], publicUsage: [] };
+  }
   const model = "gemini-3-flash-preview";
   const today = new Date().toISOString().split('T')[0];
   
@@ -112,6 +146,9 @@ export const fetchLatestAINews = async (query: string = "latest AI technology ad
 };
 
 export const chatWithAI = async (message: string, history: { role: string, parts: { text: string }[] }[]) => {
+  if (!ai) {
+    return "I'm sorry, but I'm unable to connect to the AI service right now. Please check the API configuration.";
+  }
   const model = "gemini-3-flash-preview";
   const chat = ai.chats.create({
     model,

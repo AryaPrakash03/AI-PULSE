@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Header } from './components/Header';
 import { NewsCard } from './components/NewsCard';
 import { CEOInsights } from './components/CEOInsights';
