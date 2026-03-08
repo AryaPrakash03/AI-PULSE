@@ -3,79 +3,109 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { NewsResponse } from "../types";
 
-const getApiKey = () => {
-  let key = "";
+// In AI Studio, process.env.GEMINI_API_KEY is automatically injected into the frontend.
+const apiKey = process.env.GEMINI_API_KEY;
 
-  // 1. Try process.env (standard for AI Studio and Node environments)
-  try {
-    // @ts-ignore
-    if (typeof process !== 'undefined' && process.env && process.env.GEMINI_API_KEY) {
-      // @ts-ignore
-      key = process.env.GEMINI_API_KEY;
-    }
-  } catch (e) {}
-
-  // 2. Try Vite-prefixed environment variable
-  if (!key && typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_GEMINI_API_KEY) {
-    key = import.meta.env.VITE_GEMINI_API_KEY;
-  }
-
-  // 3. Try global variable (sometimes injected by platform)
-  // @ts-ignore
-  if (!key && typeof GEMINI_API_KEY !== 'undefined') {
-    // @ts-ignore
-    key = GEMINI_API_KEY;
-  }
-
-  // Final check for string "undefined" which can happen with some build tools
-  if (key === "undefined" || key === "null") return "";
-  
-  return key;
-};
-
-const apiKey = getApiKey();
-
-// Only initialize if we have an API key to prevent crashes
-const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
+// Only initialize if we have a valid-looking API key
+const ai = (apiKey && apiKey !== "undefined" && apiKey !== "null") 
+  ? new GoogleGenAI({ apiKey }) 
+  : null;
 
 export const fetchLatestAINews = async (query: string = "latest AI technology advancements and news", category: string = "All"): Promise<NewsResponse> => {
-  try {
-    const response = await fetch("/api/news", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query, category })
-    });
+  if (!ai) {
+    console.warn("Gemini AI not initialized. Using mock data.");
+    return getMockData(query, category, "API Key missing or invalid");
+  }
 
-    if (!response.ok) {
-      const contentType = response.headers.get("content-type");
-      let errorMessage = "Failed to fetch news from server";
-      
-      if (contentType && contentType.includes("application/json")) {
-        const errorData = await response.json();
-        errorMessage = errorData.error || errorMessage;
-      } else {
-        const text = await response.text();
-        if (text.includes("<title>")) {
-          const titleMatch = text.match(/<title>(.*?)<\/title>/);
-          errorMessage = titleMatch ? `Server Error: ${titleMatch[1]}` : "Server returned HTML instead of JSON";
-        } else {
-          errorMessage = text.slice(0, 100) || errorMessage;
+  try {
+    const model = "gemini-3-flash-preview";
+    const today = new Date().toISOString().split('T')[0];
+    
+    const prompt = `CRITICAL: You MUST use the Google Search tool to find the most recent news for the query below.
+    
+    CURRENT DATE: ${today}
+    SEARCH QUERY: ${query}
+    CATEGORY: ${category}
+    
+    INSTRUCTIONS:
+    1. Perform a fresh Google Search for "${query} latest news ${today}".
+    2. Focus on news from the last 24-48 hours.
+    3. If the query is a company (like Paytm, PhonePe, etc.), find their latest business updates, AI initiatives, or regulatory news.
+    4. DO NOT use your internal knowledge if it's older than 24 hours. Use the search results.
+    5. If no news is found for the specific query, find the most recent general tech/AI news from today.
+    6. Return the data in the requested JSON format.
+    
+    DATA STRUCTURE:
+    - 'news': [{title, summary, source, url, date, category, companyName, companyLogo}]
+    - 'ceoQuotes': [{ceoName, company, quote, context, url, avatarUrl}]
+    - 'publicUsage': [{userField, story, impact, example, url}]`;
+
+    const response = await ai.models.generateContent({
+      model,
+      contents: [{ parts: [{ text: prompt }] }],
+      config: {
+        systemInstruction: "You are an expert AI news researcher. You MUST use the Google Search tool for every request to find real-time news. Never hallucinate or use old training data for news queries.",
+        tools: [{ googleSearch: {} }],
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            news: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  title: { type: Type.STRING },
+                  summary: { type: Type.STRING },
+                  source: { type: Type.STRING },
+                  url: { type: Type.STRING },
+                  date: { type: Type.STRING },
+                  category: { type: Type.STRING },
+                  companyName: { type: Type.STRING },
+                  companyLogo: { type: Type.STRING }
+                },
+                required: ['title', 'summary', 'source', 'url', 'date', 'category']
+              }
+            },
+            ceoQuotes: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  ceoName: { type: Type.STRING },
+                  company: { type: Type.STRING },
+                  quote: { type: Type.STRING },
+                  context: { type: Type.STRING },
+                  url: { type: Type.STRING },
+                  avatarUrl: { type: Type.STRING }
+                },
+                required: ['ceoName', 'company', 'quote', 'context', 'url']
+              }
+            },
+            publicUsage: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  userField: { type: Type.STRING },
+                  story: { type: Type.STRING },
+                  impact: { type: Type.STRING },
+                  example: { type: Type.STRING },
+                  url: { type: Type.STRING }
+                },
+                required: ['userField', 'story', 'impact', 'example', 'url']
+              }
+            }
+          },
+          required: ['news', 'ceoQuotes', 'publicUsage']
         }
       }
-      
-      throw new Error(errorMessage);
-    }
+    });
 
-    const contentType = response.headers.get("content-type");
-    if (!contentType || !contentType.includes("application/json")) {
-      const text = await response.text();
-      throw new Error(`Invalid response from server: ${text.slice(0, 100)}...`);
-    }
-
-    const data = await response.json();
+    const data = JSON.parse(response.text || '{"news": [], "ceoQuotes": [], "publicUsage": []}');
     
     const generateStableId = (item: any, prefix: string, index: number) => {
       const str = `${item.url || item.title || item.story}-${index}`;
@@ -103,7 +133,6 @@ export const fetchLatestAINews = async (query: string = "latest AI technology ad
     return data;
   } catch (e: any) {
     console.error("Gemini API Error (Client):", e);
-    // Fallback to mock data on any error so the UI doesn't break
     return getMockData(query, category, e.message);
   }
 };
@@ -173,41 +202,22 @@ const getMockData = (query: string, category: string, errorMessage?: string): Ne
 };
 
 export const chatWithAI = async (message: string, history: { role: string, parts: { text: string }[] }[]) => {
+  if (!ai) {
+    return "I'm sorry, but my AI core is currently offline. Please check the API key configuration.";
+  }
+
   try {
-    const response = await fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message, history })
+    const model = "gemini-3-flash-preview";
+    const chat = ai.chats.create({
+      model,
+      config: {
+        systemInstruction: "You are PulseBot, an AI news assistant for AI Pulse. You help users understand the latest AI advancements, explain technical concepts, and provide insights into tech companies. Be concise, professional, and helpful. Use the context of the latest AI news if possible.",
+      },
+      history: history
     });
 
-    if (!response.ok) {
-      const contentType = response.headers.get("content-type");
-      let errorMessage = "Failed to chat with AI server";
-      
-      if (contentType && contentType.includes("application/json")) {
-        const errorData = await response.json();
-        errorMessage = errorData.error || errorMessage;
-      } else {
-        const text = await response.text();
-        if (text.includes("<title>")) {
-          const titleMatch = text.match(/<title>(.*?)<\/title>/);
-          errorMessage = titleMatch ? `Server Error: ${titleMatch[1]}` : "Server returned HTML instead of JSON";
-        } else {
-          errorMessage = text.slice(0, 100) || errorMessage;
-        }
-      }
-      
-      throw new Error(errorMessage);
-    }
-
-    const contentType = response.headers.get("content-type");
-    if (!contentType || !contentType.includes("application/json")) {
-      const text = await response.text();
-      throw new Error(`Invalid response from server: ${text.slice(0, 100)}...`);
-    }
-
-    const data = await response.json();
-    return data.text;
+    const response = await chat.sendMessage({ message });
+    return response.text;
   } catch (e) {
     console.error("Chat Error (Client):", e);
     return "I encountered an error while processing your request. This might be due to an invalid API key or a temporary service interruption.";
