@@ -1,6 +1,6 @@
 import React from 'react';
 import { X, Check, Brain, Cpu, Network, Zap, Shield, Globe } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db, handleFirestoreError } from '../firebase';
 import { UserProfile } from '../types';

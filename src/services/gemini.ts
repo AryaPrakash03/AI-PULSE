@@ -7,7 +7,36 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { NewsResponse } from "../types";
 
 // In AI Studio, process.env.GEMINI_API_KEY is automatically injected into the frontend.
-const apiKey = process.env.GEMINI_API_KEY;
+// We use a safer way to access it in the browser.
+const getApiKey = () => {
+  // 1. Try process.env (defined in vite.config.ts)
+  try {
+    if (typeof process !== 'undefined' && process.env && process.env.GEMINI_API_KEY) {
+      return process.env.GEMINI_API_KEY;
+    }
+  } catch (e) {}
+
+  // 2. Try import.meta.env
+  try {
+    if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_GEMINI_API_KEY) {
+      return import.meta.env.VITE_GEMINI_API_KEY;
+    }
+  } catch (e) {}
+
+  // 3. Try global window variable
+  try {
+    // @ts-ignore
+    if (typeof window !== 'undefined' && window.GEMINI_API_KEY) {
+      // @ts-ignore
+      return window.GEMINI_API_KEY;
+    }
+  } catch (e) {}
+
+  return null;
+};
+
+const apiKey = getApiKey();
+console.log('Gemini API Key detected:', apiKey ? 'Yes (starts with ' + apiKey.substring(0, 4) + '...)' : 'No');
 
 // Only initialize if we have a valid-looking API key
 const ai = (apiKey && apiKey !== "undefined" && apiKey !== "null") 

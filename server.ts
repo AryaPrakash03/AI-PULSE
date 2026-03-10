@@ -24,14 +24,22 @@ app.get("/api/health", (req, res) => {
 
 // Middleware and Static Files
 async function startServer() {
+  console.log("Starting server process...");
   const isProduction = process.env.NODE_ENV === "production" || !!process.env.VERCEL;
+  console.log(`Environment: ${process.env.NODE_ENV}, isProduction: ${isProduction}`);
   
   if (!isProduction) {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
+    console.log("Initializing Vite dev server...");
+    try {
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: "spa",
+      });
+      app.use(vite.middlewares);
+      console.log("Vite middleware attached.");
+    } catch (e) {
+      console.error("Failed to initialize Vite server:", e);
+    }
   } else if (!process.env.VERCEL) {
     const distPath = path.join(__dirname, "dist");
     if (fs.existsSync(distPath)) {
@@ -48,7 +56,8 @@ async function startServer() {
   if (!process.env.VERCEL) {
     const PORT = 3000;
     app.listen(PORT, "0.0.0.0", () => {
-      console.log(`Server running on http://localhost:${PORT}`);
+      console.log(`>>> Server is now listening on http://0.0.0.0:${PORT}`);
+      console.log(`>>> Health check: http://localhost:${PORT}/api/health`);
     });
   }
 }

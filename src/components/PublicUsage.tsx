@@ -6,7 +6,7 @@
 import React from 'react';
 import { Lightbulb, ArrowRight, Bookmark as BookmarkIcon } from 'lucide-react';
 import { PublicUsageStory } from '../types';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { auth, db, handleFirestoreError } from '../firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { doc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
