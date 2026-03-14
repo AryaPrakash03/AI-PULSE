@@ -46,9 +46,13 @@ export const ChatBot: React.FC = () => {
       
       const response = await chatWithAI(userMessage, history);
       setMessages(prev => [...prev, { role: 'model', text: response || 'Sorry, I couldn\'t process that.' }]);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Chat error:', error);
-      setMessages(prev => [...prev, { role: 'model', text: 'I encountered an error. Please try again.' }]);
+      let errorMessage = 'I encountered an error. Please try again.';
+      if (error.message?.includes('429') || error.message?.includes('quota')) {
+        errorMessage = "I'm currently handling a high volume of requests. Please try again in a moment, or check out the featured news in the feed!";
+      }
+      setMessages(prev => [...prev, { role: 'model', text: errorMessage }]);
     } finally {
       setIsLoading(false);
     }
