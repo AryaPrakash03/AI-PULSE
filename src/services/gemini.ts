@@ -11,16 +11,15 @@ import { NewsResponse } from "../types";
 const getApiKey = () => {
   // 1. Try process.env (defined in vite.config.ts)
   try {
-    if (typeof process !== 'undefined' && process.env && process.env.GEMINI_API_KEY) {
-      return process.env.GEMINI_API_KEY;
-    }
+    // @ts-ignore
+    const key = process.env.GEMINI_API_KEY;
+    if (key && key !== "undefined" && key !== "null") return key;
   } catch (e) {}
 
   // 2. Try import.meta.env
   try {
-    if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_GEMINI_API_KEY) {
-      return import.meta.env.VITE_GEMINI_API_KEY;
-    }
+    if (import.meta.env.VITE_GEMINI_API_KEY) return import.meta.env.VITE_GEMINI_API_KEY;
+    if (import.meta.env.GEMINI_API_KEY) return import.meta.env.GEMINI_API_KEY;
   } catch (e) {}
 
   // 3. Try global window variable
@@ -172,10 +171,10 @@ const getMockData = (query: string, category: string, errorMessage?: string): Ne
     news: [
       {
         id: 'mock-1',
-        title: errorMessage ? `Connection Error: ${errorMessage}` : "Gemini API Connection Required",
+        title: errorMessage ? `Connection Error: ${errorMessage}` : "Gemini API Key Required",
         summary: errorMessage 
-          ? `The server returned an error: "${errorMessage}". Please check your GEMINI_API_KEY configuration.`
-          : "To see real-time intelligence for your search, please ensure a valid Gemini API key is configured in your environment variables.",
+          ? `The application encountered an error: "${errorMessage}". If you are on Vercel, ensure you have added 'GEMINI_API_KEY' to your Environment Variables AND triggered a new deployment.`
+          : "To unlock real-time intelligence, please ensure a valid Gemini API key is configured. On Vercel, add 'GEMINI_API_KEY' to your project settings.",
         source: "AI Pulse System",
         url: "https://ai.google.dev/",
         date: "System Message",
